@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import json
 import argparse
 from flask import Flask
 
@@ -39,13 +40,13 @@ ix = {}
 netixlan = {}
 
 with open(args.netfile, 'r') as f:
-    net = f.read()
+    net = json.loads(f.read())
 
 with open(args.ixfile, 'r') as f:
-    ix = f.read()
+    ix = json.loads(f.read())
 
 with open(args.netixlanfile, 'r') as f:
-    netixlan = f.read()
+    netixlan = json.loads(f.read())
 
 @app.route('/test')
 def test():
@@ -54,14 +55,23 @@ def test():
 # declarar as rotas para o servidor
 @app.route('/api/ix')
 def ixps():
-    pass
+    return json.dumps({'data': ix['data']})
 
 @app.route('/api/ixnets/<ix_id>')
 def ixp_ids(ix_id):
-    pass
+    result = {'data': []}
+    for it in ix['data']:
+        if it['id'] == int(ix_id):
+            result['data'].append(it)
+    return json.dumps(result)
 
 @app.route('/api/netname/<net_id>')
 def net_name(net_id):
-    pass
+    name = ''
+    for it in net['data']:
+        if int(net_id) == it['id']:
+            name = it['name']
+            break
+    return json.dumps({'data': name})
 
 app.run(host='0.0.0.0', port=args.port)
