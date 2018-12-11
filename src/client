@@ -1,0 +1,128 @@
+#!/usr/bin/python3
+
+import json
+import argparse
+import socket
+
+parser = argparse.ArgumentParser()
+parser.add_argument('ip_port', type=str, help='ip e port do socket do servidor')
+parser.add_argument('option', type=int, help='tipo de analise (IXP por rede -> 0, rede por IXP -> 1)')
+args = parser.parse_args()
+
+server_address = (args.ip_port.split(':')[0], int(args.ip_port.split(':')[1]))
+
+if args.option is 1:
+    # analise de redes por IXP
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(server_address)
+
+    header = 'GET /api/ix HTTP/1.1\r\nHost: ' + args.ip_port + '\r\n\r\n'
+    client_socket.send(header.encode('utf-8'))
+    response = ''
+    while True:
+        recv = client_socket.recv(1024)
+        if not recv:
+            break
+        response += recv.decode('utf-8')
+
+    response = json.loads(response.split('\r\n\r\n')[1])
+    saida = []
+    client_socket.close()
+    i = 0
+    for it in response['data']:
+        saida.append(str(it['id']) + '\t' + it['name'] + '\t')
+
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect(server_address)
+        header = 'GET /api/ixnets/' + str(it['id']) + ' HTTP/1.1\r\nHost: ' + args.ip_port + '\r\n\r\n'
+        client_socket.send(header.encode('utf-8'))
+        response2 = ''
+        while True:
+            recv = client_socket.recv(1024)
+            if not recv:
+                break
+            response2 += recv.decode('utf-8')
+        if(response2):
+            response2 = json.loads(response2.split('\r\n\r\n')[1])
+            saida[i] += str(len(response2['data']))
+        else:
+            saida[i] += str(0)
+        client_socket.close()
+        i += 1
+
+    for it in saida:
+        print(it)
+    client_socket.close()
+
+    # arquivo csv para plotar
+
+elif args.option is 0:
+    # analise de IXP por redes
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(server_address)
+
+    header = 'GET /api/ix HTTP/1.1\r\nHost: ' + args.ip_port + '\r\n\r\n'
+    client_socket.send(header.encode('utf-8'))
+    response = ''
+    while True:
+        recv = client_socket.recv(1024)
+        if not recv:
+            break
+        response += recv.decode('utf-8')
+
+    ixs = json.loads(response.split('\r\n\r\n')[1])
+    saida = []
+    client_socket.close()
+    net_ids = []
+    count = []
+    net_names = []
+
+    for it in ixs['data']:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect(server_address)
+        header = 'GET /api/ixnets/' + str(it['id']) + ' HTTP/1.1\r\nHost: ' + args.ip_port + '\r\n\r\n'
+        client_socket.send(header.encode('utf-8'))
+        response = ''
+        while True:
+            recv = client_socket.recv(1024)
+            if not recv:
+                break
+            response += recv.decode('utf-8')
+        response = json.loads(response.split('\r\n\r\n')[1])
+        for it2 in response['data']:
+            is_in_array = False
+            for i in range(len(net_ids)):
+                if int(it2['net_id']) is int(net_ids[i]):
+                    is_in_array = True
+                    count[i] += 1
+            if not is_in_array:
+                net_ids.append(it2['net_id'])
+                count.append(1)
+        client_socket.close()
+
+    for it in net_ids:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect(server_address)
+        header = 'GET /api/netname/' + str(it) + ' HTTP/1.1\r\nHost: ' + args.ip_port + '\r\n\r\n'
+        client_socket.send(header.encode('utf-8'))
+        response = ''
+        while True:
+            recv = client_socket.recv(1024)
+            if not recv:
+                break
+            response += recv.decode('utf-8')
+        response = json.loads(response.split('\r\n\r\n')[1])
+
+        net_names.append(response['data'])
+    
+    for i in range(len(net_ids)):
+        print(net_ids[i], '\t', net_names[i], '\t', count[i])
+    
+    # arquivo csv pra plotar
+    with open('analise0.csv', 'w') as f:
+        for i in range(len(count)):
+            f.write(str(count[i]) + ',')
+        f.write('\n')
+
+else:
+    print('parametro de opcao nao reconhecido')

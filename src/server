@@ -60,8 +60,8 @@ def ixps():
 @app.route('/api/ixnets/<ix_id>')
 def ixp_ids(ix_id):
     result = {'data': []}
-    for it in ix['data']:
-        if it['id'] == int(ix_id):
+    for it in netixlan['data']:
+        if it['ix_id'] == int(ix_id):
             result['data'].append(it)
     return json.dumps(result)
 
